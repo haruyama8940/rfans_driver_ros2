@@ -1,23 +1,18 @@
-/* -*- mode: C++ -*-
- *  All right reserved, Sure_star Coop.
- *  @Technic Support: <sdk@isurestar.com>
- *  $Id$
- */
-
-#include <ros/ros.h>
-#include "rfans_driver.h"
+#include <rclcpp/rclcpp.hpp>
+#include "rfans_driver/rfans_driver.hpp"
 
 int main(int argc, char** argv)
 {
-    ros::init(argc, argv, "rfans_driver");
-    ros::NodeHandle node;
-    ros::NodeHandle nh("~");
-    rfans_driver::Rfans_Driver* driver = new rfans_driver::Rfans_Driver(node, nh);
+    rclcpp::init(argc, argv);
+    auto node = rclcpp::Node::make_shared("rfans_driver");
+    // auto nh = std::make_shared<rclcpp::Node>("~");
+    auto driver = std::make_shared<rfans_driver::Rfans_Driver>(node);
 
-    while( (ros::ok()) && (driver->spinOnce()))
+    while (rclcpp::ok() && driver->spinOnce())
     {
-        ros::spinOnce();
+        rclcpp::spin_some(node);
     }
 
+    rclcpp::shutdown();
     return 0;
 }

@@ -1,6 +1,8 @@
-#include "calculation.h"
+#include "rfans_driver/calculation.hpp"
 #include <math.h>
 #include <cmath>
+#include <cstring>
+
 float m_anglePara[30]={0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,45,-15,45,-15,0,0};
 float m_anglePara_32[30]={0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,45,-15,45,-15,0,0};
 double m_mirrorVector[4][3];

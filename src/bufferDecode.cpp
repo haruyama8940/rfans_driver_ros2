@@ -1,11 +1,12 @@
-﻿#include "bufferDecode.h"
+#include "rfans_driver/bufferDecode.hpp"
 #include <string.h>
 #include <cmath>
 #include <time.h>
 #include <stdio.h>
-#include <ros/ros.h>
+#include <rclcpp/rclcpp.hpp>
+// #include <ros/ros.h>
 #include <sys/time.h>
-#include "ioapi.h"
+#include "rfans_driver/ioapi.hpp"
 #include <ctime>
 
 
@@ -13,11 +14,9 @@ static const int LINE_POINT_MINI_COUNT = 500; //一条扫描线最少点的个�
 static const float ANGLE_CIRCLE_CONDITION = 270; //角度抖动处理值
 static const float UINTCONVERT = 0.01;
 
-static const size_t packet_size = sizeof(rfans_driver::RfansPacket().data);
-static const size_t BLOCK_COUNT_MAX = sizeof(rfans_driver::RfansPacket().data)/138;
-//double m_lidarAngle[2][32];      //32个激光器的角度
-//double  m_mirrorVector[4][3];     //旋转矩阵
-//float m_anglePara[30]={0, 0, 0, 0, 0, 0, 0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,0, 0, 0,45,-15,45,-15,0,0};
+static const size_t packet_size = sizeof(rfans_driver_msgs::msg::RfansPacket().data);
+static const size_t BLOCK_COUNT_MAX = sizeof(rfans_driver_msgs::msg::RfansPacket().data)/138;
+
 static float s_angle_duration = 359 ;
 const double TIME_FLAG_SCALE = 0.0000001;
 static int LINE_POINT_COUNT = 256*1024;
@@ -83,259 +82,12 @@ inline bool recordAsPPSAngel(unsigned int lastTime, unsigned int curTime) {
     return recordPPSAngle;
 }
 
-//inline unsigned int strToList(std::vector<float> &list, std::string str)
-//{
-//  unsigned int count = 0;
-//  string::size_type prev = 0;
-//  string::size_type pos = 0;
-//  string tmpValue ;
-//  list.clear();
-//  while((pos = str.find_first_of(',', pos))!= string::npos)
-//  {
-//    tmpValue =  str.substr(prev, pos - prev);
-//    list.push_back( atof(tmpValue.c_str()));
-//    pos++;
-//    prev = pos;
-//    count++;
-//  }
-//  return count;
-//}
-
-
-// //计算坐标
-//inline int calcCFansCoor(float range ,float angle ,int index,int laserID, RFANS_XYZ_S &outXyz){
-//      int rtn = 1;
-//    // float tmpXYZ[3];
-//     double tmpMirrorVector[3];
-//     memcpy(tmpMirrorVector, m_mirrorVector[index], sizeof(m_mirrorVector[index]));
-
-//    /* if (laserID % 2 == 0) {
-//         //angle += 45 ;
-//         angle += m_anglePara[24];
-//     }else{
-//         // angle -= 15 ;
-//         angle += m_anglePara[25];
-//     }*/
-
-//     switch (laserID % 4) {
-//     case 0:
-//         angle  += m_anglePara[24];
-//         break;
-//     case 1:
-//         angle  += m_anglePara[25];
-//         break;
-//     case 2:
-//         angle  += m_anglePara[26];
-//         break;
-//     case 3:
-//         angle  += m_anglePara[27];
-//         break;
-//     }
-
-
-//     double tmpDrection[3];
-//     double angleV = m_lidarAngle[0][laserID] * M_PI / 180.0;
-//     double angleH = m_lidarAngle[1][laserID] * M_PI / 180.0;
-//     double direction[2][3]={ {abs(sin(angleH)*cos(angleV)), cos(angleH)*cos(angleV), sin(angleV) } ,{abs(sin(angleH)*cos(angleV)), -cos(angleH)*cos(angleV), sin(angleV) }};
-//     if (laserID % 2 == 0)
-//         memcpy(tmpDrection,direction[1],sizeof(direction[1])) ;
-//     else
-//         memcpy(tmpDrection,direction[0],sizeof(direction[0])) ;
-
-//     double stb = sin(angle*M_PI / 180.0);
-//     double	ctb = cos(angle*M_PI / 180.0);
-//     double tmptt = fabs(( (ctb*tmpMirrorVector[0] + stb*tmpMirrorVector[1])*tmpDrection[0] +(-stb*tmpMirrorVector[0] + ctb*tmpMirrorVector[1])*tmpDrection[1] +tmpMirrorVector[2]*tmpDrection[2]) );
-//     double tmpXyz0[3];
-//     tmpXyz0[0] = (tmpDrection[0] + 2 * (ctb*tmpMirrorVector[0] + stb*tmpMirrorVector[1])*tmptt)* range;
-//     tmpXyz0[1] = (tmpDrection[1] + 2 * (-stb*tmpMirrorVector[0] + ctb*tmpMirrorVector[1])*tmptt)* range;
-//     tmpXyz0[2] = (tmpDrection[2] + 2 * tmpMirrorVector[2] * tmptt)* range;
-
-
-
-//     double angleCorrX, angleCorrY, angleCorrZ;
-//     int planBaseIndex;
-//     if ((laserID % 2) == 0){
-//         planBaseIndex = index* 3;
-//         tmpXyz0[1] += m_anglePara[28];
-//     }else{
-//          planBaseIndex = index * 3 + 12;
-//          tmpXyz0[1] += m_anglePara[29];
-//     }
-
-
-//     angleCorrX = m_anglePara[ planBaseIndex + 0];
-//     angleCorrY = m_anglePara[ planBaseIndex + 1];
-//     angleCorrZ = m_anglePara[ planBaseIndex + 2];
-
-//     outXyz.x = tmpXyz0[1] * (cos(angleCorrX)*sin(angleCorrZ) - cos(angleCorrZ)*sin(angleCorrX)*sin(angleCorrY)) - tmpXyz0[2] * (sin(angleCorrX)*sin(angleCorrZ) + cos(angleCorrX)*cos(angleCorrZ)*sin(angleCorrY)) + tmpXyz0[0] * cos(angleCorrY)*cos(angleCorrZ);
-//     outXyz.y= tmpXyz0[1] * (cos(angleCorrX)*cos(angleCorrZ) + sin(angleCorrX)*sin(angleCorrY)*sin(angleCorrZ)) - tmpXyz0[2] * (cos(angleCorrZ)*sin(angleCorrX) - cos(angleCorrX)*sin(angleCorrY)*sin(angleCorrZ)) - tmpXyz0[0] * cos(angleCorrY)*sin(angleCorrZ);
-//     outXyz.z = tmpXyz0[0] * sin(angleCorrY) + tmpXyz0[2] * cos(angleCorrX)*cos(angleCorrY) + tmpXyz0[1] * cos(angleCorrY)*sin(angleCorrX);
-
-//     return rtn;
-//     //return tmpXYZ;
-// }
-
-
-
-//inline int calcXyz(unsigned char flag,float &mtRange, float &mtAngle, RFANS_XYZ_S &outXyz) {
-//  int rtn = 1;
-//  double tmptheta=0, ot = 0 ;
-
-//  switch (flag)
-//  {
-//  case RFANS_PRODUCT_MODEL_V6G_X32_0X33:
-//    mtAngle+= HANGLE_V6G_X32_0X33[outXyz.laserid];
-//    tmptheta = VANGLE_V6G_X32_0X33[outXyz.laserid] * M_PI / 180.0;
-//    break;
-// case RFANS_PRODUCT_MODEL_V6P_X32_0X45:
-//  case RFANS_PRODUCT_MODEL_V6_X32_0X40:
-//    mtAngle+= HANGLE_V6_X32_0x40[outXyz.laserid];
-//    tmptheta = VANGLE_V6_X32_0X40[outXyz.laserid] * M_PI / 180.0;
-//    break;
-// case RFANS_PRODUCT_MODEL_V6P_X16A_0X46:
-//  case RFANS_PRODUCT_MODEL_V6_X16A_0X41:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X41_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6_X32_0X40[RFANS_PRODUCT_MODEL_V6_X16A_0X41_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//    break;
-
-//  case RFANS_PRODUCT_MODEL_V6P_X16B_0X47:
-//  case RFANS_PRODUCT_MODEL_V6_X16B_0X42:
-
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X42_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6_X32_0X40[RFANS_PRODUCT_MODEL_V6_X16A_0X42_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//    break;
-// case RFANS_PRODUCT_MODEL_V6P_X16Even_0X48:
-//  case RFANS_PRODUCT_MODEL_V6_X16Even_0X43:
-
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X43_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6_X32_0X40[RFANS_PRODUCT_MODEL_V6_X16A_0X43_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//    break;
-
-//  case RFANS_PRODUCT_MODEL_V6P_X16Odd_0X49:
-//  case RFANS_PRODUCT_MODEL_V6G_X16_0X32:
-//  case RFANS_PRODUCT_MODEL_V6_X16Odd_0X44:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//    tmptheta = VANGLE_V6_X32_0X40[RFANS_PRODUCT_MODEL_V6_X16A_0X44_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X44_LASER_ID[outXyz.laserid]];
-//    break;
-
-// case RFANS_PRODUCT_MODEL_V6A_X32_0X4A:
-//    mtAngle+= HANGLE_V6_X32_0x40[outXyz.laserid];
-//    tmptheta = VANGLE_V6A_X32[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case RFANS_PRODUCT_MODEL_V6A_X16A_0X4B:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X41_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6A_X32[RFANS_PRODUCT_MODEL_V6_X16A_0X41_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6A_X16B_0X4C:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X42_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6A_X32[RFANS_PRODUCT_MODEL_V6_X16A_0X42_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6A_X16Even_0X4D:
-
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X43_LASER_ID[outXyz.laserid]];
-//    tmptheta = VANGLE_V6A_X32[RFANS_PRODUCT_MODEL_V6_X16A_0X43_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6A_X16Odd_0X4E:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//    tmptheta = VANGLE_V6A_X32[RFANS_PRODUCT_MODEL_V6_X16A_0X44_LASER_ID[outXyz.laserid]] * M_PI / 180.0;
-//    mtAngle+= HANGLE_V6_X32_0x40[RFANS_PRODUCT_MODEL_V6_X16A_0X44_LASER_ID[outXyz.laserid]];
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6A_E1_0X55:
-//      outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//            outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//      tmptheta = VAngle_16E1[outXyz.laserid] * M_PI / 180.0;
-//      mtAngle+= HANGLE_V6A_E1_0x55[outXyz.laserid];
-//       break;
-//  case RFANS_PRODUCT_MODEL_V6A_E2_0X56:
-//      outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//            outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//      tmptheta = VAngle_16E2[outXyz.laserid] * M_PI / 180.0;
-//      mtAngle+= HANGLE_V6A_E1_0x55[outXyz.laserid];
-//       break;
-//  case ID_RFANSBLOCKV32_16_31_SYNC:
-//    outXyz.laserid += RFANS_LASER_COUNT;
-//    tmptheta = VANGLE_V6_X32_0X40[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case ID_RFANSBLOCKV6G_16_31_SYNC:
-//    outXyz.laserid += RFANS_LASER_COUNT;
-//    tmptheta = VANGLE_V6G_X32_0X33[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case ID_RFANSBLOCKV32_0_15_SYNC:
-//    tmptheta = VANGLE_V6_X32_0X40[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case ID_RFANSBLOCKV6G_0_15_SYNC:
-//    tmptheta = VANGLE_V6G_X32_0X33[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case ID_RFANSBLOCKV2_SYNC:
-//    tmptheta = VANGLE_V5_X16[outXyz.laserid] * M_PI / 180.0;
-//    break;
-//  case RFANS_PRODUCT_MODEL_V6A_X16M_0X4F:
-//    outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//          outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//    mtAngle+= HANGLE_V5_X16[outXyz.laserid];
-//    tmptheta = VANGLE_V5_X16[outXyz.laserid] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6B_X32_0X50:
-//      mtAngle += HANGLE_V6B_X32_0x40[outXyz.laserid];
-//      tmptheta = VANGLE_V6A_X32[outXyz.laserid] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6BC_16G_0X57:
-//      outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//            outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//      mtAngle += HANGLE_V6BC_16G_0x57[outXyz.laserid];
-//      tmptheta = VAngle_V6B_16G[outXyz.laserid] * M_PI / 180.0;
-//     break;
-//  case RFANS_PRODUCT_MODEL_V6BC_16M_0X58:
-//      outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//            outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//      mtAngle += HANGLE_V6BC_16M_0x58[outXyz.laserid];
-//      tmptheta = VAngle_V6B_16M[outXyz.laserid] * M_PI / 180.0;
-//     break;
-//   case   RFANS_PRODUCT_MODEL_V6C_Z_X32_0X59:
-//      outXyz.laserid = outXyz.laserid >= RFANS_LASER_COUNT ?
-//            outXyz.laserid - RFANS_LASER_COUNT : outXyz.laserid;
-//      mtAngle += HANGLE_V6B_X32_0x40[outXyz.laserid];
-//      tmptheta = VAngle_V6C_Z_32[outXyz.laserid] * M_PI / 180.0;
-//     break;
-
-//  }
-
-//  if(mtAngle>360) mtAngle -= 360;
-//  if(mtAngle<0) mtAngle +=360 ;
-
-//  ot = mtAngle*M_PI / 180.0;
-
-//  outXyz.x = mtRange*cos(tmptheta) *cos(-ot );
-//  outXyz.y = mtRange*cos(tmptheta) *sin(-ot );
-//  outXyz.z = mtRange*sin(tmptheta) ;
-//  outXyz.hangle = mtAngle;
-//  return rtn ;
-//}
 
 inline bool sortByHangle(const RFANS_XYZ_S &v1, const RFANS_XYZ_S &v2) {
     return v1.hangle < v2.hangle;
 }
 
-inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
     int rtn = 0 ;
     static float s_angleSum = 0;
     float angleDif = 0 ;
@@ -407,19 +159,7 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
             int count = (s_rowData[i]).size();
             if(count>0)
             {
-                //              int index =0;
-                //              for(int j=0; j<count;)
-                //              {
-                //                  if((s_tempData[i])[0].hangle>345 && j==0)
-                //                  {
-                //                      RFANS_XYZ_S temxyz = (s_rowData[i])[index++];
-                //                      s_tempData[i].erase((s_tempData[i]).begin()+j);
-                //                      s_tempData[i].push_back(temxyz);
-                //                      j=0;
-                //                      continue;
-                //                  }
-                //                  j++;
-                //              }
+
 
                 for(int k=0; k< (s_tempData[i]).size();) {
                     if((s_tempData[i])[k].hangle>345 && k==0)
@@ -496,17 +236,19 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
         {
             unsigned int time = gpsTime;
             tm time_c;
-            time_c = stampTransform(year,month,day,hour);
-            time_c.tm_min = (int)(time/60000000);
-            time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
-            time_t  timethen = mktime(&time_c);
-            ros::Time rosTime;
-            rosTime.sec = (unsigned int)timethen;
-            rosTime.nsec = (unsigned int)(time%1000000)*1000;
-            outCloud.header.stamp = rosTime;
+            // time_c = stampTransform(year,month,day,hour);
+            // time_c.tm_min = (int)(time/60000000);
+            // time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
+            // time_t  timethen = mktime(&time_c);
+            // ros::Time rosTime;
+            // rosTime.sec = (unsigned int)timethen;
+            // rosTime.nsec = (unsigned int)(time%1000000)*1000;
+            // outCloud.header.stamp = rosTime;
         }
         else{
-            outCloud.header.stamp = ros::Time::now();
+            rclcpp::Time current_stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+            outCloud.header.stamp = current_stamp;
+            // outCloud.header.stamp = ros::Time::now();
         }
         outCloud.width = pointTotalCnt;
         outCloud.data.resize( outCloud.point_step*outCloud.width);
@@ -529,7 +271,7 @@ inline int checkFrame_sum(unsigned char flag,float mtAngle,int mtlaserId,sensor_
 }
 
 
-inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
   int rtn = 0 ;
 //  point_count++;
   static float s_angleSum = 0;
@@ -559,17 +301,19 @@ inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &o
     {
         unsigned int time = gpsTime;
         tm time_c;
-        time_c = stampTransform(year,month,day,hour);
-        time_c.tm_min = (int)(time/60000000);
-        time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
-        time_t  timethen = mktime(&time_c);
-        ros::Time rosTime;
-        rosTime.sec = (unsigned int)timethen;
-        rosTime.nsec = (unsigned int)(time%1000000)*1000;
+        // time_c = stampTransform(year,month,day,hour);
+        // time_c.tm_min = (int)(time/60000000);
+        // time_c.tm_sec = (int)(time/1000000-time_c.tm_min*60);
+        // time_t  timethen = mktime(&time_c);
+        // ros::Time rosTime;
+        // rosTime.sec = (unsigned int)timethen;
+        // rosTime.nsec = (unsigned int)(time%1000000)*1000;
     }
     else
     {
-        outCloud.header.stamp = ros::Time::now();
+        rclcpp::Time current_stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+        outCloud.header.stamp = current_stamp;
+        // outCloud.header.stamp = ros::Time::now();
     }
     outCloud.width = s_lineCount;
     outCloud.data.resize( outCloud.point_step*outCloud.width  );
@@ -579,22 +323,12 @@ inline int checkOneRound(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &o
     s_lineCount = 0 ;
     s_angleSum = 0 ;
   }
-//  if(point_count >= 64000)
-//  {
-//      outCloud.header.stamp = ros::Time::now();
-//      outCloud.width = s_lineCount;
-//      outCloud.data.resize( outCloud.point_step*outCloud.width);
-//      outCloud.row_step = outCloud.data.size();
-//      memcpy(&outCloud.data[0] , &s_lineData[0], outCloud.data.size() );
-//      rtn =1;
-//      s_lineCount=0;
-//      point_count=0;
-//  }
+
   return rtn ;
 }
 
 
-inline int checkFrame(float mtAngle,int mtlaserId,sensor_msgs::PointCloud2 &outCloud) {
+inline int checkFrame(float mtAngle,int mtlaserId,sensor_msgs::msg::PointCloud2 &outCloud) {
     int rtn = 0 ;
     float angleDif = 0 ;
     if( mtlaserId !=0 ) return rtn ;
@@ -691,7 +425,7 @@ inline int calCFansMirrorIndex(int angle_fix,int laserID,float &range){
 
 
 //process level 0 data.
-inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz;
@@ -843,7 +577,7 @@ inline int processPacketOri(PACKET_ORI_S* packet,sensor_msgs::PointCloud2 &outCl
 }
 
 //process level 2 data
-inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz1;
@@ -859,49 +593,7 @@ inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &ou
     for(int i =0; i < GROUP_NUM_USER; i++)//10 bolck
     {
         GROUP_USER_S* mtBlock = &packet->groups[i];
-//        if(i <=8)
-//        {
-//            int tmpAngleDiff = packet->groups[i+1].azimuth_angle - packet->groups[i].azimuth_angle;
-//            if (tmpAngleDiff < -35000)
-//            {
-//                tmpAngleDiff += 36000;
-//            }
 
-//            if(DEVICE_ID==0x4F||DEVICE_ID==0x55||DEVICE_ID==0x56||DEVICE_ID==0x57||DEVICE_ID==0x58)
-//            {
-//                angular_z = tmpAngleDiff*UINTCONVERT/(32*3.125);
-//            }
-//            else if(DEVICE_ID == 0x5B || DEVICE_ID == 0x5C)
-//            {
-//                angular_z = tmpAngleDiff*UINTCONVERT/(32*3.33);
-//            }
-//            else
-//            {
-//                angular_z = tmpAngleDiff*UINTCONVERT/(32*1.5625);
-//            }
-
-//        }
-
-//        else
-//        {
-//            int angle_sub = packet->groups[9].azimuth_angle - packet->groups[8].azimuth_angle;
-//            if(angle_sub < -35000)
-//            {
-//                angle_sub += 36000;
-//            }
-//            if(DEVICE_ID==0x4F||DEVICE_ID==0x55||DEVICE_ID==0x56||DEVICE_ID==0x57||DEVICE_ID==0x58)
-//            {
-//                angular_z = angle_sub*UINTCONVERT/(32*3.125);
-//            }
-//            else if(DEVICE_ID == 0x5B || DEVICE_ID == 0x5C)
-//            {
-//                angular_z = angle_sub*UINTCONVERT/(32*3.33);
-//            }
-//            else
-//            {
-//                angular_z = angle_sub*UINTCONVERT/(32*1.5625);
-//            }
-//        }
         int tmpAngleDiff = packet->groups[1].azimuth_angle - packet->groups[0].azimuth_angle;
         if(tmpAngleDiff == 0) {
             tmpAngleDiff = packet->groups[2].azimuth_angle - packet->groups[0].azimuth_angle;
@@ -1132,52 +824,7 @@ inline int processPacketUser(PACKET_USER_S* packet, sensor_msgs::PointCloud2 &ou
 }
 
 
-// process level 3 data
-
-//inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::PointCloud2 &outCloud)
-//{
-//    int rtn =0;
-//    RFANS_XYZ_S tmpXyz;
-//    const float CONVERT_4mm_2m =0.004f;
-//    float tmpAngle, tmpRange;
-//    double timeOffset = 3.125;
-//    float angular_z;
-//    float s_angleStep ;
-////    unsigned char DEVICE_ID = ((packet->factory)>>8)&0xff;
-//    unsigned char DEVICE_ID = packet->gmReservedA;
-//    gpsTime = packet->gps_timestamp;
-//    int tmpDif = packet->groups[1].azimuth_angle - packet->groups[0].azimuth_angle;
-//      if ( tmpDif< -35000 ){
-//        tmpDif = tmpDif + 36000;
-//      }
-//      s_angleStep = (tmpDif) / 32.0;
-//    for(int i =0; i < GROUP_NUM_USER_SIMPLE; i++)
-//    {
-//        GROUP_USER_SIMPLE_S* mtBlock = &packet->groups[i];
-
-//        for(int j=0; j< POINT_NUM_USER_SIMPLE; j++)
-//        {
-
-//            tmpXyz.timeflag = packet->gps_timestamp+timeOffset*i*j;
-//            tmpAngle = (mtBlock->azimuth_angle+j*s_angleStep)*0.01;
-//            tmpXyz.intent = mtBlock->points[j].intensity;
-//            tmpXyz.laserid = j;
-//            tmpRange = mtBlock->points[j].range*CONVERT_4mm_2m;
-//            tmpXyz.mirrorid =0;
-//            calcXyz(DEVICE_ID,tmpRange,tmpAngle,tmpXyz);
-//            if(checkOneRound(tmpAngle,tmpXyz.laserid,outCloud)) rtn =1;
-//            s_lineData[s_lineCount] = tmpXyz;
-//            ++s_lineCount;
-//            if(s_lineCount>=LINE_POINT_COUNT) s_lineCount = LINE_POINT_COUNT-1;
-
-//        }
-//    }
-//    return rtn;
-
-//}
-
-
-inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::PointCloud2 &outCloud)
+inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn =0;
     RFANS_XYZ_S tmpXyz;
@@ -1192,49 +839,7 @@ inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::Po
     for(int i =0; i < GROUP_NUM_USER_SIMPLE; i++)
     {
         GROUP_USER_SIMPLE_S* mtBlock = &packet->groups[i];
-//        if(i <=10)
-//        {
-//            int tmpAngleDiff = packet->groups[i+1].azimuth_angle - packet->groups[i].azimuth_angle;
-//            if (tmpAngleDiff < -35000)
-//            {
-//                tmpAngleDiff += 36000;
-//            }
 
-//            if(DEVICE_ID==0x4F||DEVICE_ID==0x55||DEVICE_ID==0x56||DEVICE_ID==0x57||DEVICE_ID==0x58)
-//            {
-//                angular_z = tmpAngleDiff*UINTCONVERT/(32*3.125);
-//            }
-//            else if(DEVICE_ID==0x5C ||DEVICE_ID==0x5B)
-//            {
-//                angular_z= tmpAngleDiff*UINTCONVERT/(32*3.33);
-//            }
-//            else
-//            {
-//                angular_z = tmpAngleDiff*UINTCONVERT/(32*1.5625);
-//            }
-
-//        }
-
-//        else
-//        {
-//            int angle_sub = packet->groups[11].azimuth_angle - packet->groups[10].azimuth_angle;
-//            if(angle_sub < -35000)
-//            {
-//                angle_sub += 36000;
-//            }
-//            if(DEVICE_ID==0x4F||DEVICE_ID==0x55||DEVICE_ID==0x56||DEVICE_ID==0x57||DEVICE_ID==0x58)
-//            {
-//                angular_z = angle_sub*UINTCONVERT/(32*3.125);
-//            }
-//            else if(DEVICE_ID==0x5C ||DEVICE_ID==0x5B)
-//            {
-//                angular_z= angle_sub*UINTCONVERT/(32*3.33);
-//            }
-//            else
-//            {
-//                angular_z = angle_sub*UINTCONVERT/(32*1.5625);
-//            }
-//        }
         int tmpAngleDiff = packet->groups[1].azimuth_angle - packet->groups[0].azimuth_angle;
         if (tmpAngleDiff == 0){
             tmpAngleDiff = packet->groups[2].azimuth_angle - packet->groups[0].azimuth_angle;
@@ -1432,7 +1037,7 @@ inline int processPacketUserSimple(PACKET_USER_SIMPLE_S* packet, sensor_msgs::Po
 }
 
 
-inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointCloud2 &outCloud)
+inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn = 0;
     bool tmp_isFull = false;
@@ -1452,48 +1057,7 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
     {
         RFans_DataBlock_S *mtBlock = &mtFrame->dataBlock[j];
         mtSync = mtBlock->flag;
-        //32 points
-//        if(j <=10)
-//        {
-//            int tmpAngleDif = mtFrame->dataBlock[j+1].azimuthAngle-mtFrame->dataBlock[j].azimuthAngle;
-//            if(tmpAngleDif< -35000)
-//            {
-//                tmpAngleDif += 36000;
-//            }
-//            if(mtFrame->gmReservedA==0x4F||mtFrame->gmReservedA==0x55||mtFrame->gmReservedA==0x56||mtFrame->gmReservedA==0x57||mtFrame->gmReservedA==0x58)
-//            {
-//                angular_z= tmpAngleDif*UINTCONVERT/(32*3.125);//deg/us
-//            }
-//            else if(mtFrame->gmReservedA==0x5C || mtFrame->gmReservedA==0x5B)
-//            {
-//                angular_z= tmpAngleDif*UINTCONVERT/(32*3.33);
-//            }
-//            // add the support of c-fans32
-//            else
-//            {
-//                angular_z= tmpAngleDif*UINTCONVERT/(32*1.5625);
-//            }
-//        }
-//        else
-//        {
-//            int angle_sub = mtFrame->dataBlock[11].azimuthAngle-mtFrame->dataBlock[10].azimuthAngle;
-//            if(angle_sub< -35000)
-//            {
-//                angle_sub += 36000;
-//            }
-//            if(mtFrame->gmReservedA==0x4F||mtFrame->gmReservedA==0x55||mtFrame->gmReservedA==0x56||mtFrame->gmReservedA==0x57||mtFrame->gmReservedA==0x58)
-//            {
-//                angular_z= angle_sub*UINTCONVERT/(32*3.125);//deg/us
-//            }
-//            else if(mtFrame->gmReservedA==0x5C || mtFrame->gmReservedA==0x5B)
-//            {
-//                angular_z= angle_sub*UINTCONVERT/(32*3.33);
-//            }
-//            else
-//            {
-//                angular_z= angle_sub*UINTCONVERT/(32*1.5625);
-//            }
-//        }
+
 
         int tmpAngleDif = mtFrame->dataBlock[1].azimuthAngle-mtFrame->dataBlock[0].azimuthAngle;
         if(tmpAngleDif == 0) {
@@ -1632,22 +1196,7 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
                 calcXyz(mtFrame->gmReservedA, tmpRange, tmpAngle, tmpXyz);
             }
 
-            /*  if (s_device_type == DEVICE_TYPE_CFANS) {
-          //ROS_INFO("========parse point by cfans v6g========");
-          calcCFansCoor(tmpRange,tmpAngle,index,i,tmpXyz) ;
-      } else if (s_device_type == DEVICE_TYPE_RFANS){// rfans
-          //ROS_INFO("========parse point by rfans v6g========");
-          calcXyz(mtFrame->gmReservedA, tmpRange, tmpAngle, tmpXyz);
-      }*/
 
-            //      if(g_xyzFile) {
-            //          fprintf(g_xyzFile,"%d,%f,%f,%f,%f,%lf,%f,%lf\r\n",
-            //                  tmpXyz.laserid, tmpXyz.x, tmpXyz.y, tmpXyz.z, tmpXyz.intent, tmpXyz.timeflag,tmpAngle,tmpRange);
-            //          fflush(g_xyzFile);
-            //      }
-//            if (tmpXyz.x == 0.0 && tmpXyz.y == 0.0 && tmpXyz.z == 0.0) {
-//                tmpXyz.x = tmpXyz.y = tmpXyz.z = NAN;
-//            }
             if(tmpRange > max_range || tmpRange < min_range || tmpXyz.hangle>max_angle || tmpXyz.hangle<min_angle)
             {
                 tmpXyz.x =NAN;
@@ -1687,7 +1236,7 @@ inline int processFrameV6G(RFans_UDP32FRAMEV6G_S *mtFrame, sensor_msgs::PointClo
 const unsigned char SYNC_RELEASE_BLOCKV32_CFANS128_0_15 = 0x9D;
 const unsigned char SYNC_RELEASE_BLOCKV32_CFANS128_16_31 = 0x9E;
 
-inline int processFrameV5( RFans_UDPFRAMEV5_S *mtFrame, sensor_msgs::PointCloud2 &outCloud)
+inline int processFrameV5( RFans_UDPFRAMEV5_S *mtFrame, sensor_msgs::msg::PointCloud2 &outCloud)
 {
     int rtn = 0;
     RFANS_XYZ_S tmpXyz ;
@@ -1760,32 +1309,7 @@ SSBufferDec::~SSBufferDec()
 
 }
 
-// int SSBufferDec::initCFansPara(std::string reviseAngle) {
-//     //readAngleParaFile() ;
-//    // 32个激光器的角度
-//    double tmpAngle[2][32]= { {-13.6, -13.35,-11.82,-11.57,-10.04 ,-9.79,-8.26 ,-8.01,-6.48,-6.23,-4.7,-4.45,-2.92,-2.67,-1.14,-0.89,0.64,0.89,2.42,2.67,4.2,4.45,5.98,6.23,7.76,8.01,9.54,9.79,11.32,11.57,13.1,13.35},
-//                              { -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05, -14.95, 15.95, -17.05, 14.05}   };
-//    for (int i=0; i<2; i++)  {
-//        memcpy(m_lidarAngle[i], tmpAngle[i], sizeof(tmpAngle[i]));
-//    }
-//    //旋转矩阵
-//    double tmpPlaneNormal[4][3]= { { -1.0000, 0, -0.0066 }, { 0, -1.0000, 0 }, { 1.0000, 0, 0.0066 }, { 0 , 0.9999 ,-0.0133 }} ;
-//    for (int i=0; i<4; i++)    {
-//        memcpy(m_mirrorVector[i], tmpPlaneNormal[i], sizeof(tmpPlaneNormal[i]));
-//    }
 
-//    strToList(s_reviseangles, reviseAngle);
-//    for (int i = 0; i < s_reviseangles.size(); ++i) {
-//        m_anglePara[i] = s_reviseangles[i];
-//    }
-////    char angle[256] = { 0 };
-////    char cmd[512] = {0};
-////    sprintf(angle, "%f,%f,%f,%f,%f,%f,%f,%f", m_anglePara[0], m_anglePara[1],m_anglePara[2],
-////            m_anglePara[3],m_anglePara[4],m_anglePara[5],m_anglePara[6],m_anglePara[7]);
-////    sprintf(cmd, "echo \"%s\" > aaa.txt", angle);
-////    system(cmd);
-//    return 1;
-//}
 
 int SSBufferDec::moveWriteIndex(int setpIndex)
 {
@@ -1829,14 +1353,14 @@ int SSBufferDec::writeBuffer(unsigned char *data, int size)
     return size ;
 }
 
-int SSBufferDec::readPacket(rfans_driver::RfansPacket &pkt)
+int SSBufferDec::readPacket(rfans_driver_msgs::msg::RfansPacket &pkt)
 {
     int rtn = 0;
     if(m_decBuf.bufSize > 0 ) {
         pkt.data.resize(m_decBuf.bufSize);
         memcpy(&pkt.data[0], m_decBuf.buffer,  m_decBuf.bufSize);
-        pkt.udpCount = m_udpCount;
-        pkt.udpSize = m_udpSize;
+        pkt.udpcount = m_udpCount;
+        pkt.udpsize = m_udpSize;
         reset();
         rtn = 1;
     }
@@ -1881,7 +1405,7 @@ void SSBufferDec::reset()
     m_udpCount = 0 ;
 }
 
-int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointCloud2 &outCloud , ros::Publisher &rosOut, DEVICE_TYPE_E deviceType)
+int SSBufferDec::Depacket(rfans_driver_msgs::msg::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &rosOut, DEVICE_TYPE_E deviceType)
 {
     int rtn =0, updateflag = 0;
     s_device_type = deviceType;
@@ -1897,30 +1421,20 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 //    {
 //        ROS_WARN("ERROR");
 //    }
-    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI == inPack.udpSize)
+    if(UDP_PACKET_SIZE_DATA_LEVEL_ORI == inPack.udpsize)
     {
 //        ROS_INFO("Level 0 data");
-        for(int i =0;  i<inPack.udpCount;i++)
+        for(int i =0;  i<inPack.udpcount;i++)
         {
 //            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udpSize);
             if(sizeof(PACKET_ORI_S)!=1406)
-            ROS_WARN_STREAM("The size is: "<<sizeof(PACKET_ORI_S));
-            tmpFrameORI = (PACKET_ORI_S*)(&inPack.data[0]+i*inPack.udpSize);
-//            uint8_t data_grade, calc_grade, mirror_flag, pack_grade;
-//            data_grade = (*flag >> 14) & 0x0003;//2bit
-//            calc_grade = (*flag>> 4) & 0x03FF;//10bit
-//            mirror_flag = (*flag >> 2) & 0x0003;//2bit
-//            pack_grade = *flag & 0x0003;//2bit
-            // process level 0 data
-//            if( (data_grade == DATA_LEVEL_ORI ||data_grade == DATA_LEVEL_CALIB) && mirror_flag == MIRROR_ID_RFANS )
-//            {
-                // single echo or two echo.
+
+            tmpFrameORI = (PACKET_ORI_S*)(&inPack.data[0]+i*inPack.udpsize);
+
                 if(processPacketOri(tmpFrameORI,outCloud))
                 {
-//                    timeval tval_begin;
-//                   gettimeofday(&tval_begin, NULL);
-//                     printf("xxs: %ld, us: %06ld\n", tval_begin.tv_sec, tval_begin.tv_usec);
-                    rosOut.publish(outCloud);
+
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
 //            }
@@ -1929,11 +1443,11 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 
     }
 
-    else if(UDP_PACKET_SIZE_V6G == inPack.udpSize)
+    else if(UDP_PACKET_SIZE_V6G == inPack.udpsize)
     {
-        for(int i=0 ; i< inPack.udpCount; i++)
+        for(int i=0 ; i< inPack.udpcount; i++)
         {
-            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udpSize);
+            flag = (unsigned short*)(&inPack.data[0]+i*inPack.udpsize);
             uint8_t data_grade, calc_grade, mirror_flag, pack_grade;
             data_grade = (*flag >> 14) & 0x0003;//2bit
             calc_grade = (*flag>> 4) & 0x03FF;//10bit
@@ -1941,38 +1455,40 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
             pack_grade = *flag & 0x0003;//2bit
             if(data_level_==2)
             {
-                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udpSize);
+                tmpFrameUSER =(PACKET_USER_S*)(&inPack.data[0]+i*inPack.udpsize);
                 if(processPacketUser(tmpFrameUSER,outCloud))
                 {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 
             else if(data_level_ ==3)
             {
-                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udpSize);
+                tmpFrameUSERSimple =(PACKET_USER_SIMPLE_S*) (&inPack.data[0]+i*inPack.udpsize);
                 if(processPacketUserSimple(tmpFrameUSERSimple,outCloud))
                 {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
 
             else
             {
-                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpSize);
+                tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpsize);
                 firstPointAngle = tmpFrameV6->dataBlock[0].azimuthAngle*UINTCONVERT;
                 static unsigned int lastGpsTimestamp = 0;
                 bool recordPPSAngle = recordAsPPSAngel(lastGpsTimestamp, tmpFrameV6->gpsTimestamp);
                 if (recordPPSAngle) {
-                    ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
-                                    <<"                                The pps angle is: "<<firstPointAngle);
+                    // ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
+                    //                 <<"                                The pps angle is: "<<firstPointAngle);
+                    // RCLCPP_INFO_STREAM_ONCE(th"The device IP is: "<<ip_address<<"\n"
+                    //                 <<"                                The pps angle is: "<<firstPointAngle);
                     //                ROS_INFO_STREAM("The pps angle is "<<firstPointAngle);
                 }
                 lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
                 if( processFrameV6G(tmpFrameV6,outCloud) ) {
-                    rosOut.publish(outCloud);
+                    rosOut->publish(outCloud);
                     SSBufferDec::ResetPointCloud2(outCloud);
                 }
             }
@@ -2020,41 +1536,16 @@ int SSBufferDec::Depacket(rfans_driver::RfansPacket &inPack, sensor_msgs::PointC
 
         }
 
-//    if( UDP_PACKET_SIZE_V5A == inPack.udpSize) {
-//        for( int i = 0 ; i < inPack.udpCount;i++) {
-//            tmpFrameV5 = (RFans_UDPFRAMEV5_S*)(&inPack.data[0] + i*inPack.udpSize);
-//            if( processFrameV5(tmpFrameV5,outCloud) ){
-//                rosOut.publish(outCloud);
-//                SSBufferDec::ResetPointCloud2(outCloud);
-//            }
-//        }
-//    }
-//    else if(UDP_PACKET_SIZE_V6G == inPack.udpSize) {
-//        for( int i = 0 ; i < inPack.udpCount;i++) {
-//            tmpFrameV6 = (RFans_UDP32FRAMEV6G_S*)(&inPack.data[0] + i*inPack.udpSize);
-//            firstPointAngle = tmpFrameV6->dataBlock[0].azimuthAngle*UINTCONVERT;
-//            static unsigned int lastGpsTimestamp = 0;
-//            bool recordPPSAngle = recordAsPPSAngel(lastGpsTimestamp, tmpFrameV6->gpsTimestamp);
-//            if (recordPPSAngle) {
-//                ROS_INFO_STREAM("The device IP is: "<<ip_address<<"\n"
-//                                <<"                                The pps angle is: "<<firstPointAngle);
-////                ROS_INFO_STREAM("The pps angle is "<<firstPointAngle);
-//            }
-//            lastGpsTimestamp = tmpFrameV6->gpsTimestamp;
-//            if( processFrameV6G(tmpFrameV6,outCloud) ) {
-//                rosOut.publish(outCloud);
-//                SSBufferDec::ResetPointCloud2(outCloud);
-//            }
-//        }
-//    }
+
     else {
-        ROS_INFO_STREAM(" inPack.udpSize " <<inPack.udpSize );
+        // ROS_INFO_STREAM(" inPack.udpSize " <<inPack.udpSize );
+        // RCLCPP_INFO(this->get_logger()," inPack.udpSize " ,inPack.udpSize );
     }
     return rtn ;
 }
 
-void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
-    static const size_t DataSize = sizeof(rfans_driver::RfansPacket().data) / sizeof(SCDRFANS_BLOCK_S ) * sizeof(RFANS_XYZ_S) *RFANS_LASER_COUNT;
+void SSBufferDec::InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud, std::string &frame_id_str) {
+    static const size_t DataSize = sizeof(rfans_driver_msgs::msg::RfansPacket().data) / sizeof(SCDRFANS_BLOCK_S ) * sizeof(RFANS_XYZ_S) *RFANS_LASER_COUNT;
     initCloud.data.clear();
     initCloud.data.resize( DataSize); //point data
 
@@ -2116,16 +1607,19 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
 
 
     //node name
-    std::string node_name = ros::this_node::getName();
+    // std::string node_name =  rclcpp::Node::get_name();
 
-    std::string frame_id_str = "/world";
-    std::string frame_id_path = node_name + "/frame_id";
-    std::string ip_str = std::string("rfans_driver/") + "device_ip";
-    std::string data_level_param = std::string("rfans_driver/")+"data_level";
-    ros::param::get(frame_id_path,frame_id_str);
-    ros::param::get(ip_str,ip_address);
-    ros::param::get(data_level_param,data_level_);
-    ros::param::get("model",device_type);
+    // std::string frame_id_str = "/world";
+    // std::string frame_id_path = node_name + "/frame_id";
+    // std::string ip_str = std::string("rfans_driver/") + "device_ip";
+    // std::string data_level_param = std::string("rfans_driver/")+"data_level";
+
+    // get_parameter(frame_id_path,frame_id_str);
+    // get_parameter(ip_str,ip_address);
+    // get_parameter(data_level_param,data_level_);
+    // get_parameter("model",device_type);
+
+
     initCloud.header.frame_id = frame_id_str;
 
     s_lastAngle = 0 ;
@@ -2137,40 +1631,10 @@ void SSBufferDec::InitPointcloud2(sensor_msgs::PointCloud2 &initCloud) {
     for (int i = 0; i < 32; ++i) {
         s_rowData[i].clear();
     }
-    //logFile = fopen("/home/liyp/test.log","w+");
-    //  //device  ip name
-    //  std::string vangles_str = "\
-    //      -25,   -22,   -19,   -16,\
-    //      -13,   -11,    -9,    -7,\
-    //      -5.5,  -4.5,  -3.5,  -2.9,\
-    //      -2.45,  -2.1, -1.75,  -1.4,\
-    //      -1.05,  -0.7, -0.35,     0,\
-    //      0.35,   0.7,  1.05,   1.4,\
-    //      2.5,   3.5,   4.5,     6,\
-    //      8,    10,    12,    15, ";
 
-    //      std::string vangle_path = node_name + "/laser_vangle";
-    //  ros::param::get(vangle_path,vangles_str);
-    //  strToList(s_vangles,vangles_str);
-
-    //  std::string hangles_str = "\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0,\
-    //      0,  0,  0,  0, ";
-
-    //  std::string hangle_path = node_name + "/laser_hangle";
-    //  ros::param::get(hangle_path, hangles_str);
-    //  ROS_INFO("hable %s\n",hangles_str.c_str() );
-    //  strToList(s_hangles, hangles_str);
 }
 
-void SSBufferDec::ResetPointCloud2(sensor_msgs::PointCloud2 &initCloud) {
+void SSBufferDec::ResetPointCloud2(sensor_msgs::msg::PointCloud2 &initCloud) {
     initCloud.width = 0;
 }
 
@@ -2201,4 +1665,3 @@ void SSBufferDec::setSaveXYZ(bool save) {
         fflush(g_xyzFile);
     }
 }
-

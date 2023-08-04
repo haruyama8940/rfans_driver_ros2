@@ -1,6 +1,6 @@
 #ifndef CALCULATION_H
 #define CALCULATION_H
-#include "ssFrameLib.h"
+#include "rfans_driver/ssFrameLib.hpp"
 #include <vector>
 using namespace std;
 /*

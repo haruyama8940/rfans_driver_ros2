@@ -13,14 +13,14 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/file.h>
-#include "ioapi.h"
-#include "bufferDecode.h"
+#include "rfans_driver/ioapi.hpp"
+#include "rfans_driver/bufferDecode.hpp"
 
 namespace rfans_driver
 {
 
 static const int POLL_TIMEOUT = 1000; // one second (in msec)
-static const size_t packet_size = sizeof(rfans_driver::RfansPacket().data);
+static const size_t packet_size = sizeof(rfans_driver_msgs::msg::RfansPacket().data);
 static const size_t packet_count = packet_size/ sizeof(SCDRFANS_BLOCK_S );
 extern size_t packet_size_pcap;
 
@@ -50,7 +50,7 @@ int IOAPI::HW_WRREG(int flag, int regAddress, unsigned int regData) {
   return rtn;
 }
 
-int IOAPI::revPacket(rfans_driver::RfansPacket &pkt)
+int IOAPI::revPacket(rfans_driver_msgs::msg::RfansPacket &pkt)
 {
   int rtn = 0 ;
 
@@ -63,7 +63,10 @@ int IOAPI::revPacket(rfans_driver::RfansPacket &pkt)
     rtn = read(m_bufferPro->getWriteIndex(), upd_packet_size) ;
     if(rtn >0 ) {
       m_bufferPro->moveWriteIndex(rtn) ;
-      if(readCount == 31) pkt.stamp = ros::Time::now();
+      // if(readCount == 31) pkt.stamp = ros::Time::ow();
+      rclcpp::Time time_stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+      // if(readCount == 31) pkt.stamp = time_stamp.nanoseconds();
+      if(readCount == 31) pkt.stamp = time_stamp;
     } else if(rtn < 0 ) break;
   }
 
@@ -71,7 +74,7 @@ int IOAPI::revPacket(rfans_driver::RfansPacket &pkt)
 }
 
 /** @brief Get packet. */
-int IOAPI::getPacket(rfans_driver::RfansPacket &pkt) {
+int IOAPI::getPacket(rfans_driver_msgs::msg::RfansPacket &pkt) {
   int rtn = 0;
   rtn = m_bufferPro->readPacket(pkt) ;
   return rtn;
@@ -82,7 +85,7 @@ int IOAPI::getPacket(rfans_driver::RfansPacket &pkt) {
 ////////////////////////////////////////////////////////////////////////
 /** @brief constructor
          *
-         *  @param private_nh ROS handle for calling node.
+        //  *  @param private_nh ROS handle for calling node.
          *  @param port UDP port number
          */
 IOSocketAPI::IOSocketAPI(std::string ipstr, uint16_t devport, int16_t pcport)
@@ -178,7 +181,7 @@ int IOSocketAPI::read(unsigned char *data, int size)
     }
   }
   if (retval == 0) {
-    ROS_WARN("IOSocketAPI::read  poll() timeout");
+    // ROS_WARN("IOSocketAPI::read  poll() timeout");
     nbytes = 0;
   }
   return nbytes ;
@@ -195,7 +198,9 @@ SSFileAPI::SSFileAPI(const char *fileName) {
 
     s_rawFile = fopen(fileName,"rb+") ;
     if(s_rawFile)
-          ROS_INFO("open file %s",fileName);
+          // ROS_INFO("open file %s",fileName);
+          // RCLCPP_INFO(this->get_logger(),"open file %s",fileName);
+          int t =0;
   }
   m_blocks = (SCDRFANS_BLOCK_S *)malloc(packet_count*sizeof(SCDRFANS_BLOCK_S) );
 }
@@ -287,7 +292,7 @@ int SSFileAPI::outputFile(std::vector<SCDRFANS_BLOCK_S> &outBlocks, std::vector<
   return rtn ;
 }
 
-int SSFileAPI::outputFile(sensor_msgs::PointCloud2 &pointCloud, int flag)
+int SSFileAPI::outputFile(sensor_msgs::msg::PointCloud2 &pointCloud, int flag)
 {
   int rtn =0;
 
@@ -362,7 +367,7 @@ int SSFileAPI::printf(char *msgStr, int size)
 
 ////end read
 
-    InputPCAP::InputPCAP(ros::NodeHandle private_nh, uint16_t port,
+    InputPCAP::InputPCAP(rclcpp::Node::SharedPtr private_nh,uint16_t port,
                           double packet_rate,std::string filename,
                          std::string device_ip,bool read_once,
                          bool read_fast, double repeat_delay):
@@ -376,23 +381,36 @@ int SSFileAPI::printf(char *msgStr, int size)
        empty_ = true;
 
        // get parameters using private node handle
-       private_nh.param("read_once", read_once_, false);
-       private_nh.param("read_fast", read_fast_, false);
-       private_nh.param("repeat_delay", repeat_delay_, 0.0);
+      //  private_nh.param("read_once", read_once_, false);
+      //  private_nh.param("read_fast", read_fast_, false);
+      //  private_nh.param("repeat_delay", repeat_delay_, 0.0);
 
+      private_nh->declare_parameter("read_once", false);
+      private_nh->declare_parameter("read_fast", false);
+      private_nh->declare_parameter("repeat_delay", 0.0);
+
+      private_nh->get_parameter("read_once", read_once);
+      private_nh->get_parameter("read_fast", read_fast);
+      private_nh->get_parameter("repeat_delay", repeat_delay);
        if (read_once_)
-         ROS_INFO("Read input file only once.");
+        //  ROS_INFO("Read input file only once.");
+         RCLCPP_INFO(private_nh->get_logger(),"Read input file only once.");
        if (read_fast_)
-         ROS_INFO("Read input file as quickly as possible.");
+        //  ROS_INFO("Read input file as quickly as possible.");
+         RCLCPP_INFO(private_nh->get_logger(), "Read input file as quickly as possible.");
        if (repeat_delay_ > 0.0)
-         ROS_INFO("Delay %.3f seconds before repeating input file.",
+        //  ROS_INFO("Delay %.3f seconds before repeating input file.",
+        //           repeat_delay_);
+          RCLCPP_INFO(private_nh->get_logger(),"Delay %.3f seconds before repeating input file.",
                   repeat_delay_);
 
        // Open the PCAP dump file
-       ROS_INFO("Opening PCAP file \"%s\"", filename_.c_str());
+      //  ROS_INFO("Opening PCAP file \"%s\"", filename_.c_str());
+       RCLCPP_INFO(private_nh->get_logger(), "Opening PCAP file \"%s\"", filename_.c_str());
        if ((pcap_ = pcap_open_offline(filename_.c_str(), errbuf_) ) == NULL)
          {
-           ROS_FATAL("Error opening Rfans socket dump file, please set a correct path.");
+          //  ROS_FATAL("Error opening Rfans socket dump file, please set a correct path.");
+          RCLCPP_ERROR(private_nh->get_logger(),"Error opening Rfans socket dump file, please set a correct path.");
            return;
          }
 
@@ -413,7 +431,7 @@ int SSFileAPI::printf(char *msgStr, int size)
      }
 
      /** @brief Get one R-Fans packet. */
-     int InputPCAP::getPacket(rfans_driver::Packet *pkt)
+     int InputPCAP::getPacket(rfans_driver_msgs::msg::Packet pkt)
      {
        struct pcap_pkthdr *header;
        const u_char *pkt_data;
@@ -432,35 +450,50 @@ int SSFileAPI::printf(char *msgStr, int size)
                // Keep the reader from blowing through the file.
                if (read_fast_ == false)
                  packet_rate_.sleep();
-               packet_size_pcap = header->caplen - 42;
-               pkt->data.resize(packet_size_pcap);
-               memcpy(&pkt->data[0], pkt_data+42, packet_size_pcap);
-               pkt->stamp = ros::Time::now(); // time_offset not considered here, as no synchronization required
+              packet_size_pcap = header->caplen - 42;
+              pkt.data.resize(packet_size_pcap);
+              memcpy(&pkt.data[0], pkt_data+42, packet_size_pcap);
+              // rclcpp::Clock ros_clock(rcl_clock_type_t RCL_ROS_TIME);
+               rclcpp::Time time_stamp = rclcpp::Clock(RCL_ROS_TIME).now();
+              //  pkt.stamp = time_stamp.nanoseconds(); // time_offset not considered here, as no synchronization required
+               pkt.stamp = time_stamp; // time_offset not considered here, as no synchronization required
+              //  pkt->stamp = ros::Time::now(); // time_offset not considered here, as no synchronization required
                empty_ = false;
                return 0;                   // success
              }
 
            if (empty_)                 // no data in file?
              {
-               ROS_WARN("Error %d reading R-Fans packet: %s",
+              //  ROS_WARN("Error %d reading R-Fans packet: %s",
+              //           res, pcap_geterr(pcap_));
+               RCLCPP_WARN(rclcpp::get_logger("rfans_driver"),"Error %d reading R-Fans packet: %s",
                         res, pcap_geterr(pcap_));
+              //  RCLCPP_WARN(private_nh->get_logger(),"Error %d reading R-Fans packet: %s",
+              //           res, pcap_geterr(pcap_));
                return -1;
              }
 
            if (read_once_)
              {
-               ROS_INFO("end of file reached -- done reading.");
+              //  ROS_INFO("end of file reached -- done reading.");
+               RCLCPP_INFO(rclcpp::get_logger("rfans_driver"),"Error %d reading R-Fans packet: %s",
+                        res, pcap_geterr(pcap_));
+              //  RCLCPP_INFO(private_nh->get_logger(),"Error %d reading R-Fans packet: %s",
+                        // res, pcap_geterr(pcap_));
                return -1;
              }
 
            if (repeat_delay_ > 0.0)
              {
-               ROS_INFO("end of file reached -- delaying %.3f seconds.",
+               RCLCPP_INFO(rclcpp::get_logger("rfans_driver"),"end of file reached -- delaying %.3f seconds.",
                         repeat_delay_);
+              //  RCLCPP_INFO(private_nh->get_logger(),"end of file reached -- delaying %.3f seconds.",
+              //           repeat_delay_);
                usleep(rint(repeat_delay_ * 1000000.0));
              }
 
-           ROS_DEBUG("replaying R-Fans dump file");
+          //  RCLCPP_INFO(private_nh->get_logger(),"replaying R-Fans dump file");
+           RCLCPP_INFO(rclcpp::get_logger("rfans_driver"),"replaying R-Fans dump file");
 
            // I can't figure out how to rewind the file, because it
            // starts with some kind of header.  So, close the file

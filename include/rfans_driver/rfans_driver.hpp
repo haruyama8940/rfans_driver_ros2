@@ -6,17 +6,19 @@
 
 #ifndef _RFANS_DRIVER_H_
 #define _RFANS_DRIVER_H_
-#include <ros/ros.h>
-#include "ioapi.h"
+#include <rclcpp/rclcpp.hpp>
+#include "rfans_driver/ioapi.hpp"
 #include <stdint.h>
-
+#include "rfans_driver_msgs/srv/rfans_command.hpp"
+#include "rfans_driver_msgs/msg/rfans_packet.hpp"
+#include "rfans_driver_msgs/msg/rfans_scan.hpp"
 
 namespace rfans_driver
 {
-class Rfans_Driver
+class Rfans_Driver : public rclcpp::Node // Nodeを継承する
 {
 public:
-    Rfans_Driver(ros::NodeHandle node, ros::NodeHandle nh);
+    Rfans_Driver(); // コンストラクタでノード名やオプションを指定する
     ~Rfans_Driver();
 
     int spinOnce();
@@ -26,13 +28,12 @@ public:
 private:
     double calcReplayPacketRate();
     void configDeviceParams();
-    void setupNodeParams(ros::NodeHandle node,ros::NodeHandle nh);
+    void setupNodeParams(); // ノードハンドルは不要
 
     bool worRealtime();
     int spinOnceRealtime();
     bool spinOnceSimu();
 
-private:
     struct
     {
         std::string command_path;
@@ -46,9 +47,9 @@ private:
         bool dual_echo;
     } config_;
     rfans_driver::IOAPI *m_devapi;
-    ros::Publisher m_output;
-    ros::ServiceServer server_ ;
-    rfans_driver::RfansPacket tmpPacket;
+    rclcpp::Publisher<rfans_driver_msgs::msg::RfansPacket>::SharedPtr m_output; // ROS2のメッセージ型とSharedPtrを使う
+    rclcpp::Service<rfans_driver_msgs::srv::RfansCommand>::SharedPtr server_; // ROS2のサービス型とSharedPtrを使う
+    rfans_driver_msgs::msg::RfansPacket tmpPacket; // ROS2のメッセージ型を使う
     rfans_driver::InputPCAP *input_;
 };
 
