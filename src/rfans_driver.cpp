@@ -274,6 +274,7 @@ private:
         this->declare_parameter<std::string>("device_ip", "192.168.0.3");
         this->declare_parameter<int>("rps", 10);
         this->declare_parameter<std::string>("pcap", "");
+        this->declare_parameter<int>("data_level",3);
 
         this->get_parameter("model", config_.device_name);
         this->get_parameter("advertise_name", config_.advertise_path);
@@ -282,6 +283,7 @@ private:
         this->get_parameter("device_ip", config_.device_ip);
         this->get_parameter("rps", config_.scnSpeed);
         this->get_parameter("pcap", config_.simu_filepath);
+        this->get_parameter("data_level",config_.data_level);
 
     }
 
@@ -429,5 +431,11 @@ int main(int argc, char** argv)
     auto node = std::make_shared<rfans_driver::RfansDriverNode>();
     rclcpp::spin(node);
     rclcpp::shutdown();
+    // while (rclcpp::ok())
+    // {
+    //     node->spinOnce();
+    //     rclcpp::spin_some(node);
+    // }
+    // rclcpp::shutdown();
     return 0;
 }

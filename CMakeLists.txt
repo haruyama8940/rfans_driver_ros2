@@ -10,22 +10,6 @@ find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 find_package(rfans_driver_msgs REQUIRED)
 set(libpcap_LIBRARIES -lpcap)
-# find_package(rosidl_default_generators REQUIRED)
-# find_package(std_msgs REQUIRED)
-# #msg file 
-# # set(msg_files
-# #   "msg/Packet.msg"
-# #   "msg/RfansPacket.msg"
-# #   "msg/RfansScan.msg"
-# # )
-# rosidl_generate_interfaces(${PROJECT_NAME}
-#   # ${msg_files}
-#   "msg/Packet.msg"
-#   "msg/RfansPacket.msg"
-#   "msg/RfansScan.msg"
-#   "srv/RfansCommand.srv"
-#   DEPENDENCIES std_msgs
-# )
 
 # ament_export_dependencies(rosidl_default_runtime)
 ament_auto_add_library(lidar_calculate src/calculation.cpp)
@@ -44,7 +28,8 @@ ament_auto_add_executable(driver_node
   src/bufferDecode.cpp )
 target_link_libraries(driver_node lidar_calculate ${libpcap_LIBRARIES})
 ament_target_dependencies(driver_node rfans_driver_msgs)
-# #calculation_node 
+
+#calculation_node 
 ament_auto_add_executable(calculation_node 
   src/cloud_node.cpp 
   src/ssFrameLib.cpp 
@@ -52,6 +37,7 @@ ament_auto_add_executable(calculation_node
 target_link_libraries(calculation_node lidar_calculate)
 ament_target_dependencies(calculation_node rfans_driver_msgs)
 
+#cloud_process_node
 ament_auto_add_executable(cloud_process src/cloud_process.cpp)
 ament_target_dependencies(cloud_process rfans_driver_msgs)
 #${${PROJECT_NAME}_EXPORTED_TARGETS})

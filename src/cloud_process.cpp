@@ -15,7 +15,7 @@ public:
     sub = this->create_subscription<sensor_msgs::msg::PointCloud2>(
       "/rfans_driver/rfans_points", 10, std::bind(&CloudProcessor::cloudCallback, this, std::placeholders::_1));
 
-    pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("rfans_points", 10);
+    pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("surestar_points", 10);
   }
 
 private:
