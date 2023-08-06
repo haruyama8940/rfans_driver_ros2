@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
-
+#include <unistd.h>
 
 
 static const int RFANS_POINT_CLOUD_NUM = 1024 ;
