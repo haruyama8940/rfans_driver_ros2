@@ -1405,7 +1405,8 @@ void SSBufferDec::reset()
     m_udpCount = 0 ;
 }
 
-int SSBufferDec::Depacket(rfans_driver_msgs::msg::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &rosOut, DEVICE_TYPE_E deviceType)
+int SSBufferDec::Depacket(const rfans_driver_msgs::msg::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , 
+rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &rosOut, DEVICE_TYPE_E deviceType)
 {
     int rtn =0, updateflag = 0;
     s_device_type = deviceType;
