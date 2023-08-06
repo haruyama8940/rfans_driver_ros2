@@ -23,7 +23,7 @@ static sensor_msgs::msg::PointCloud2 outCloud ;
 
 // static rclcpp::Publisher<rfans_driver_msgs::msg::RfansPacket>::SharedPtr s_output;
 static rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr s_output;
-static rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr s_sub;
+// static rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr s_sub;
 
 // static ros::Publisher  s_output;
 // static ros::Subscriber s_sub ;
@@ -141,7 +141,7 @@ public:
   }
     // pthread_t ssCreateThread(int pri, void * obj, PFUNC_THREAD fnth);
     // int heartbeat_thread_run(void *para);
-    void RFansPacketReceived(const rfans_driver_msgs::msg::RfansPacket &pkt);
+    void RFansPacketReceived(rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt);
     // void callback(rfans_driver::FilterParamsConfig &config, uint32_t level);
     void callback();
     void calcurate_func();
@@ -228,9 +228,9 @@ private:
 //     return 0;
 // }
 
-void CalculationNode::RFansPacketReceived(const rfans_driver_msgs::msg::RfansPacket &pkt) {
+void CalculationNode::RFansPacketReceived(rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt) {
   int rtn = 0 ;
-  rtn =  SSBufferDec::Depacket(pkt, outCloud,s_output, s_deviceType) ;
+  rtn =  SSBufferDec::Depacket(*pkt, outCloud,s_output, s_deviceType) ;
   return ;
 }
 
