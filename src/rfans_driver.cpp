@@ -53,9 +53,10 @@ public:
         // server_ = this->create_service<rfans_driver_msgs::srv::RfansCommand>("rfans_driver/" + config_.command_path, &CommandHandle);
 
         // driver init
-        m_output = this->create_publisher<rfans_driver_msgs::msg::RfansPacket>("rfans_driver/" + config_.advertise_path, RFANS_PACKET_NUM);
+        // m_output = this->create_publisher<rfans_driver_msgs::msg::RfansPacket>("rfans_driver/" + config_.advertise_path, RFANS_PACKET_NUM);
+        m_output = this->create_publisher<rfans_driver_msgs::msg::RfansPacket>("rfans_driver/" + config_.advertise_path, 10);
         double packet_rate = calcReplayPacketRate();
-        rclcpp::Node::SharedPtr nh;
+        rclcpp::Node::SharedPtr nh = rclcpp::Node::make_shared("rfans_driver");
         if (!config_.simu_filepath.empty()) {
             
             // input_ = new rfans_driver::InputPCAP(this, config_.dataport, packet_rate, config_.simu_filepath, config_.device_ip,false,false,0.0);
@@ -80,13 +81,17 @@ public:
     }
 
     /** @brief Rfnas Driver Core */
-    int spinOnce()
+    bool spinOnce()
     {
         if (worRealtime()) {
             return spinOnceRealtime();
-        } else {
+            RCLCPP_INFO(this->get_logger(),"real");
+        } 
+        else {
             return spinOnceSimu();
+            RCLCPP_INFO(this->get_logger(),"simu");
         }
+        RCLCPP_INFO(this->get_logger(),"kani");
     }
 
     int spinOnceRealtime()
@@ -99,7 +104,7 @@ public:
         if (rtn > 0) {
             m_output->publish(tmpPacket);
         }
-
+        
         return rtn;
     }
 
@@ -284,12 +289,14 @@ private:
         this->get_parameter("rps", config_.scnSpeed);
         this->get_parameter("pcap", config_.simu_filepath);
         this->get_parameter("data_level",config_.data_level);
-
+        RCLCPP_INFO(this->get_logger(),"Setup Node Param!!!");
     }
 
     bool worRealtime()
     {
-        return (!config_.simu_filepath.empty());
+        return (config_.simu_filepath.empty());
+        
+        // return ((config_.simu_filepath == "")? true : false);
     }
 
     double calcReplayPacketRate()
@@ -429,13 +436,15 @@ int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<rfans_driver::RfansDriverNode>();
-    rclcpp::spin(node);
-    rclcpp::shutdown();
-    // while (rclcpp::ok())
-    // {
-    //     node->spinOnce();
-    //     rclcpp::spin_some(node);
-    // }
+    // rclcpp::spin(node);
     // rclcpp::shutdown();
+    // while (rclcpp::ok()&&node->spinOnce())
+
+    while (rclcpp::ok())
+    {
+        node->spinOnce();
+        rclcpp::spin_some(node);
+    }
+    rclcpp::shutdown();
     return 0;
 }

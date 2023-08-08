@@ -136,12 +136,13 @@ class CalculationNode : public rclcpp::Node
 public:
   CalculationNode() : Node("calculation_node")
   {
-     s_sub_ = this->create_subscription<rfans_driver_msgs::msg::RfansPacket>("paket",1,
+    s_sub_ = this->create_subscription<rfans_driver_msgs::msg::RfansPacket>("rfans_driver/rfans_packets",1,
             std::bind(&CalculationNode::RFansPacketReceived, this, std::placeholders::_1));
+    s_output_ =this->create_publisher<sensor_msgs::msg::PointCloud2>("rfans_driver/rfans_points",10);
   }
     // pthread_t ssCreateThread(int pri, void * obj, PFUNC_THREAD fnth);
     // int heartbeat_thread_run(void *para);
-    void RFansPacketReceived(rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt);
+    void RFansPacketReceived(const rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt);
     // void callback(rfans_driver::FilterParamsConfig &config, uint32_t level);
     void callback();
     void calcurate_func();
@@ -228,9 +229,11 @@ private:
 //     return 0;
 // }
 
-void CalculationNode::RFansPacketReceived(rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt) {
+void CalculationNode::RFansPacketReceived(const rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt) {
   int rtn = 0 ;
-  rtn =  SSBufferDec::Depacket(*pkt, outCloud,s_output, s_deviceType) ;
+//   RCLCPP_INFO(this->get_logger(),"rfans packet");
+//   rtn =  SSBufferDec::Depacket(pkt, outCloud,s_output, s_deviceType) ;
+  rtn =  SSBufferDec::Depacket(pkt, outCloud,s_output_, s_deviceType) ;
   return ;
 }
 
@@ -310,7 +313,7 @@ void CalculationNode::calcurate_func(){
     //rfans_point sub
     // rclcpp::Subscription<rfans_driver_msgs::msge::RfansPacket>::SharedPtr s_sub_;
     //point_cloud pub
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr s_output_;
+    // rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr s_output_;
     this->declare_parameter("rfans_driver/rps",scanSpeed);
     this->declare_parameter("rfans.use_double_echo",use_double_echo_);
     bool ok = this->get_parameter("/rfans_driver/rps",scanSpeed);
@@ -393,7 +396,13 @@ int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<CalculationNode>();
-    rclcpp::spin(node);
+    node->calcurate_func();
+    node->callback();
+    while (rclcpp::ok())
+    {
+        rclcpp::spin_some(node);
+    }
+    
     rclcpp::shutdown();
     return 0;
 }

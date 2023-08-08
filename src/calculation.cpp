@@ -37,6 +37,8 @@ inline unsigned int strToList(std::vector<float> &list, std::string str)
     }
     return count;
 }
+/*This function analyzes and calculates the data received from 
+  RFans LIDAR and calculates the XYZ coordinates of a point */
 int calcXyz(unsigned char flag, float &mtRange, float &mtAngle, RFANS_XYZ_S &outXyz)
 {
     int rtn = 1;

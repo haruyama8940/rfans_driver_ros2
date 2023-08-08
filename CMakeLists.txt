@@ -9,6 +9,7 @@ endif()
 find_package(ament_cmake_auto REQUIRED)
 ament_auto_find_build_dependencies()
 find_package(rfans_driver_msgs REQUIRED)
+find_package(backward_ros REQUIRED) 
 set(libpcap_LIBRARIES -lpcap)
 
 # ament_export_dependencies(rosidl_default_runtime)
@@ -42,6 +43,9 @@ ament_auto_add_executable(cloud_process src/cloud_process.cpp)
 ament_target_dependencies(cloud_process rfans_driver_msgs)
 #${${PROJECT_NAME}_EXPORTED_TARGETS})
 
+add_backward(driver_node)
+add_backward(calculation_node)
+add_backward(cloud_process)
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights

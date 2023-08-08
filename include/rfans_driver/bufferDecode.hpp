@@ -63,7 +63,7 @@ public:
     int getUdpCount() { return m_udpCount;}
     int getUdpSize() {return m_udpSize;}
 
-    static int Depacket(rfans_driver_msgs::msg::RfansPacket inPack, sensor_msgs::msg::PointCloud2 &outCloud , 
+    static int Depacket(const rfans_driver_msgs::msg::RfansPacket::SharedPtr &inPack, sensor_msgs::msg::PointCloud2 &outCloud , 
                         rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr &rosOut, DEVICE_TYPE_E deviceType);
     // static int Depacket(rfans_driver_msgs::msg::RfansPacket &inPack, sensor_msgs::msg::PointCloud2 &outCloud , rclcpp::Publisher &rosOut, DEVICE_TYPE_E deviceType);
     // static void InitPointcloud2(sensor_msgs::msg::PointCloud2 &initCloud) ;
