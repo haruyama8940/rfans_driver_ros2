@@ -11,13 +11,16 @@ def generate_launch_description():
     read_once = launch.substitutions.LaunchConfiguration('read_once', default='false')
     repeat_delay = launch.substitutions.LaunchConfiguration('repeat_delay', default='0.0')
     frame_id = launch.substitutions.LaunchConfiguration('frame_id', default='surestar')
-
+    
+    #This node starts 3D-LiDAR Rfans and retrieves the packet.
     rfans_driver_node = launch_ros.actions.Node(
         package='rfans_driver',
         executable='driver_node',
         name='rfans_driver',
         output=output,
         parameters=[
+            {'model':'R-Fans-16'},
+            #publish paket name /rfans_driver/ + advertise_name
             {'advertise_name': 'surestar_packets'},
             {'control_name': 'surestar_control'},
             {'device_ip': '192.168.0.3'},
@@ -31,28 +34,37 @@ def generate_launch_description():
             {'repeat_delay': repeat_delay},
         ]
     )
-
+    #This node converts packets from driver_node to pointcloud2 topics
     calculation_node = launch_ros.actions.Node(
         package='rfans_driver',
         executable='calculation_node',
         name='calculation_node',
         parameters=[
-            {'advertise_name': 'surestar_points'},
+            #publish topic name
+            {'advertise_name': 'rfans_points'},
+            #subscribe topic name
             {'subscribe_name': 'surestar_packets'},
             {'frame_id': frame_id},
             {'use_gps': 'false'},
             {'revise_angle_128': revise_angle_128},
             {'revise_angle_32': revise_angle_32},
+            {'min_range':0.0},
+            {'max_range': 180.0},
+            {'min_angle':0.0},
+            {'max_angle': 360.0},
+            {'angle_duration':360.0}
         ]
     )
-
+    #This node converts the data format of pointcloud2 data produced by calculation_node to the same format as Velodyne, etc.
     cloud_process_node = launch_ros.actions.Node(
         package='rfans_driver',
         executable='cloud_process',
         name='cloud_process',
         remappings=[
+            #publish pointcloud2
             ('rfans_points', 'surestar_points'),
-            ('/rfans_driver/rfans_points', 'rfans_driver/surestar_points'),
+            #subsclibe pointcloud2
+            # ('/rfans_driver/rfans_points', 'rfans_driver/surestar_points'),
         ]
     )
 
