@@ -16,11 +16,13 @@ def generate_launch_description():
         package='rfans_driver_ros2',
         executable='driver_node',
         name='rfans_driver',
-        output=output,
+        #remappings=[
+        #    ('/rfans_driver/rfans_packets','rfans_packets'),
+        #],
         parameters=[
             {'model':'R-Fans-16'},
             #publish paket name /rfans_driver/ + advertise_name
-            {'advertise_name': 'surestar_packets'},
+            #{'advertise_name': 'surestar_packets'},
             {'control_name': 'surestar_control'},
             {'device_ip': '192.168.0.3'},
             {'device_port': 2014},
