@@ -10,11 +10,10 @@ def generate_launch_description():
     read_fast = launch.substitutions.LaunchConfiguration('read_fast', default='false')
     read_once = launch.substitutions.LaunchConfiguration('read_once', default='false')
     repeat_delay = launch.substitutions.LaunchConfiguration('repeat_delay', default='0.0')
-    frame_id = launch.substitutions.LaunchConfiguration('frame_id', default='surestar')
     
     #This node starts 3D-LiDAR Rfans and retrieves the packet.
     rfans_driver_node = launch_ros.actions.Node(
-        package='rfans_driver',
+        package='rfans_driver_ros2',
         executable='driver_node',
         name='rfans_driver',
         output=output,
@@ -27,8 +26,8 @@ def generate_launch_description():
             {'device_port': 2014},
             {'rps': 10},
             {'pcap': ''},
-            {'data_level': '3'},
-            {'use_double_echo': 'false'},
+            {'data_level': 3},
+            {'use_double_echo': False},
             {'read_fast': read_fast},
             {'read_once': read_once},
             {'repeat_delay': repeat_delay},
@@ -36,35 +35,41 @@ def generate_launch_description():
     )
     #This node converts packets from driver_node to pointcloud2 topics
     calculation_node = launch_ros.actions.Node(
-        package='rfans_driver',
+        package='rfans_driver_ros2',
         executable='calculation_node',
         name='calculation_node',
+
+        #remappings=[
+        #    ('/rfans_driver/rfans_packets','rfans_packets'),
+            # ('/rfans_driver/rfans_points','rfans_points')
+        #],
         parameters=[
             #publish topic name
-            {'advertise_name': 'rfans_points'},
+            #{'advertise_name': 'rfans_points'},
             #subscribe topic name
-            {'subscribe_name': 'surestar_packets'},
-            {'frame_id': frame_id},
-            {'use_gps': 'false'},
+            #{'subscribe_name': 'surestar_packets'},
+            {'frame_id': 'surestar'},
+            {'use_gps': False},
             {'revise_angle_128': revise_angle_128},
             {'revise_angle_32': revise_angle_32},
             {'min_range':0.0},
             {'max_range': 180.0},
             {'min_angle':0.0},
             {'max_angle': 360.0},
-            {'angle_duration':360.0}
+            {'angle_duration':360.0},
+            {'model':'R-Fans-16'}
         ]
     )
     #This node converts the data format of pointcloud2 data produced by calculation_node to the same format as Velodyne, etc.
     cloud_process_node = launch_ros.actions.Node(
-        package='rfans_driver',
+        package='rfans_driver_ros2',
         executable='cloud_process',
         name='cloud_process',
         remappings=[
             #publish pointcloud2
-            ('rfans_points', 'surestar_points'),
+            ('rfans_points', 'surestar_points')
             #subsclibe pointcloud2
-            # ('/rfans_driver/rfans_points', 'rfans_driver/surestar_points'),
+            # ('/rfans_driver/rfans_points', '/rfans_points')
         ]
     )
 
@@ -87,11 +92,10 @@ def generate_launch_description():
         launch.actions.DeclareLaunchArgument('read_fast', default_value=read_fast),
         launch.actions.DeclareLaunchArgument('read_once', default_value=read_once),
         launch.actions.DeclareLaunchArgument('repeat_delay', default_value=repeat_delay),
-        launch.actions.DeclareLaunchArgument('frame_id', default_value=frame_id),
         rfans_driver_node,
         calculation_node,
         cloud_process_node,
-        pointcloud_to_laserscan_node,
+        pointcloud_to_laserscan_node
     ])
 
 if __name__ == '__main__':

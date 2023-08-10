@@ -130,13 +130,13 @@ class CalculationNode : public rclcpp::Node
 public:
   CalculationNode() : Node("calculation_node")
   {
-    calcurate_func();
+    // calcurate_func();
     // s_sub_ = this->create_subscription<rfans_driver_msgs::msg::RfansPacket>("rfans_driver/rfans_packets",1,
     //         std::bind(&CalculationNode::RFansPacketReceived, this, std::placeholders::_1));
     // s_output_ =this->create_publisher<sensor_msgs::msg::PointCloud2>("rfans_driver/rfans_points",10);
-    s_sub_ = this->create_subscription<rfans_driver_msgs::msg::RfansPacket>(advertise_path ,10,
+    s_sub_ = this->create_subscription<rfans_driver_msgs::msg::RfansPacket>(subscribe_path ,10,
             std::bind(&CalculationNode::RFansPacketReceived, this, std::placeholders::_1));
-    s_output_ =this->create_publisher<sensor_msgs::msg::PointCloud2>(subscribe_path  ,10);
+    s_output_ =this->create_publisher<sensor_msgs::msg::PointCloud2>(advertise_path  ,10);
   }
     void RFansPacketReceived(const rfans_driver_msgs::msg::RfansPacket::SharedPtr pkt);
     void callback();
@@ -146,17 +146,26 @@ private:
     rclcpp::Subscription<rfans_driver_msgs::msg::RfansPacket>::SharedPtr s_sub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr s_output_;
 
-    std::string node_name =  rclcpp::Node::get_name();
+    // std::string node_name =  rclcpp::Node::get_name();
+    std::string node_name =  "rfans_driver";
     std::string frame_id_str = "/world";
     std::string frame_id_path = node_name + "/frame_id";
     std::string ip_str = std::string("rfans_driver/") + "device_ip";
     std::string data_level_param = std::string("rfans_driver/")+"data_level";
 
-    std::string advertise_name = "rfans_points";
-    std::string advertise_path = node_name + "/advertise_name";
-    std::string subscribe_name = "rfans_packets";
+    std::string advertise_name = "/rfans_points";
+    std::string advertise_path = node_name + advertise_name;
+    std::string subscribe_name = "/rfans_packets";
     std::string subscribe_path = node_name + subscribe_name;
 
+    bool use_gps_;
+    bool use_double_echo_ = false;
+    double angle_duration;
+
+    std::string device_model;
+
+    std::string save_xyz_key = node_name + "/save_xyz";
+    std::string save_xyz_value = "no";//default not save
 };
 
 
@@ -168,64 +177,109 @@ void CalculationNode::RFansPacketReceived(const rfans_driver_msgs::msg::RfansPac
 }
 
 
-void CalculationNode::callback(){
+// void CalculationNode::callback(){
+//     min_range = this->declare_parameter("min_range", 0.0); //0.0~1.0[m]
+//     max_range = this->declare_parameter("max_range", 180.0); //0.1~200[m]
+//     min_angle = this->declare_parameter("min_angle", 0.0);//0.0~360[deg]
+//     max_angle = this->declare_parameter("max_angle", 360.0);//0.0~360[deg]
+//     use_laserSelection_ = this->declare_parameter("use_laserSelection", false);
+//     ringID = this->declare_parameter("ringID", 0);
+//     // min_range = config.min_range;
+//     // max_range = config.max_range;
+//     // min_angle = config.min_angle;
+//     // max_angle = config.max_angle;
+//     // use_laserSelection_ = config.use_laserSelection;
+//     // ringID = config.laserID;
+// }
+void CalculationNode::setparam(){
+    RCLCPP_INFO(this->get_logger(),"setup node params!!");
     min_range = this->declare_parameter("min_range", 0.0); //0.0~1.0[m]
     max_range = this->declare_parameter("max_range", 180.0); //0.1~200[m]
     min_angle = this->declare_parameter("min_angle", 0.0);//0.0~360[deg]
     max_angle = this->declare_parameter("max_angle", 360.0);//0.0~360[deg]
     use_laserSelection_ = this->declare_parameter("use_laserSelection", false);
     ringID = this->declare_parameter("ringID", 0);
-    // min_range = config.min_range;
-    // max_range = config.max_range;
-    // min_angle = config.min_angle;
-    // max_angle = config.max_angle;
-    // use_laserSelection_ = config.use_laserSelection;
-    // ringID = config.laserID;
+
+    this->declare_parameter("use_gps",false);
+    this->get_parameter("use_gps",use_gps);
+
+    this->declare_parameter("frame_id","world");
+    this->get_parameter("frame_id",frame_id_str);
+    RCLCPP_INFO(this->get_logger(),"frame_id:%s",frame_id_str);
+    this -> declare_parameter("advertise_name","rfans_poins");
+    this -> get_parameter("advertise_name" ,advertise_path);
+    advertise_path = "rfans_driver" + advertise_name;
+
+    this->declare_parameter("subscribe_name","rfans_pakets");
+    this->get_parameter("subscribe_name",subscribe_path);
+    subscribe_path = "rfans_driver" + subscribe_name;
+    
+    angle_duration = this->declare_parameter("angle_duration", 360.0);
+
+    this->declare_parameter("rfans_driver/rps",scanSpeed);
+    this->declare_parameter("rfans.use_double_echo",use_double_echo_);
+
+    this->declare_parameter("model","R-Fans16");
+    this->get_parameter("model",device_model);
+
+    this->declare_parameter(save_xyz_key,"no");
+    this->get_parameter(save_xyz_key, save_xyz_value);
+
+    
 }
-
-
+//main function
 void CalculationNode::calcurate_func(){
+    
+    /*
     bool use_gps_;
     bool use_double_echo_ = false;
+    */
     std::string node_name =  rclcpp::Node::get_name();
     /*
     std::string frame_id_str = "/surestar";
     std::string frame_id_path = node_name + "/frame_id";
     std::string ip_str = std::string("rfans_driver/") + "device_ip";
     std::string data_level_param = std::string("rfans_driver/")+"data_level";
-    */
+
     this->declare_parameter("frame_id","world");
     this->get_parameter(frame_id_path,frame_id_str);
 
     // this->get_parameter(ip_str,ip_address);
     // this->get_parameter(data_level_param,data_level_);
     // this->get_parameter("model",device_type);
+    */
     SSBufferDec::InitPointcloud2(outCloud,frame_id_str);
 
     //advertise name
     /*
     std::string advertise_name = "rfans_points";
     std::string advertise_path = node_name + "/advertise_name";
-    */
+    
     this -> declare_parameter(advertise_name,"rfans_poins");
     this -> get_parameter(advertise_path,advertise_name);
+    
     advertise_path = "rfans_driver/" + advertise_name;
+    */
 
     //subscribe name
     /*
     std::string subscribe_name = "rfans_packets";
     std::string subscribe_path = node_name + "/subscribe_name";
-    */
+    
     this->declare_parameter(subscribe_name,subscribe_path);
     this->get_parameter(subscribe_path, subscribe_name);
+    
     subscribe_path = "rfans_driver/" + subscribe_name;
-   
+    */
+
     RCLCPP_INFO(this->get_logger(),"%s : subscribe name %s : %s",node_name.c_str(), subscribe_name.c_str(), subscribe_path.c_str() );
     pthread_t s_heartbeat_worker_id = ssCreateThread(1, NULL, heartbeat_thread_run) ;
 
     //angle duration
+    /*
     double angle_duration;
     angle_duration = this->declare_parameter("angle_duration", 360.0);
+    */
     SSBufferDec::SetAngleDuration(angle_duration);
     RCLCPP_INFO(this->get_logger(),"%s : angle_duration : %f",node_name.c_str(), angle_duration);
     
@@ -233,12 +287,12 @@ void CalculationNode::calcurate_func(){
     // rclcpp::Subscription<rfans_driver_msgs::msge::RfansPacket>::SharedPtr s_sub_;
     //point_cloud pub
     // rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr s_output_;
+    /*
     this->declare_parameter("rfans_driver/rps",scanSpeed);
     this->declare_parameter("rfans.use_double_echo",use_double_echo_);
+    */
     bool ok = this->get_parameter("/rfans_driver/rps",scanSpeed);
     bool ok1 = this->get_parameter("rfans_driver.use_double_echo", use_double_echo_);
-    // bool ok= ros::param::get("/rfans_driver/rps",scanSpeed);
-    // bool ok1 = ros::param::get("/rfans_driver/use_double_echo",use_double_echo_);
 
     if(ok && ok1){
         if(scanSpeed ==5)
@@ -268,11 +322,11 @@ void CalculationNode::calcurate_func(){
             }
         }
     }
-
+    /*
     std::string device_model;
-    // ros::param::get("model",device_model);
     this->declare_parameter("model",device_model);
     this->get_parameter("model",device_model);
+    */
     RCLCPP_INFO(this->get_logger(),"device_model_value: %s", device_model.c_str());
     if (device_model == "C-Fans-128")
     {
@@ -296,11 +350,12 @@ void CalculationNode::calcurate_func(){
     {
         s_deviceType = DEVICE_TYPE_RFANS;
     }
-
+    /*
     std::string save_xyz_key = node_name + "/save_xyz";
     std::string save_xyz_value = "no";//default not save
-    this->declare_parameter(save_xyz_key,save_xyz_value);
+    this->declare_parameter(save_xyz_key,"no");
     this->get_parameter(save_xyz_key, save_xyz_value);
+    */
     if (0 == strcmp(save_xyz_value.c_str(), "yes")) {
         SSBufferDec::setSaveXYZ(true);
     } else {
@@ -312,8 +367,9 @@ int main(int argc, char **argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<CalculationNode>();
+    node->setparam();
     node->calcurate_func();
-    node->callback();
+    // node->callback();
     while (rclcpp::ok())
     {
         rclcpp::spin_some(node);
