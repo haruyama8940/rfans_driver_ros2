@@ -275,8 +275,8 @@ private:
         this->declare_parameter<std::string>("model", "R-Fans-16");
         this->declare_parameter<std::string>("advertise_name", "rfans_packets");
         this->declare_parameter<std::string>("control_name", "rfans_control");
-        this->declare_parameter<int>("device_port", 2014);
         this->declare_parameter<std::string>("device_ip", "192.168.0.3");
+        this->declare_parameter<int>("device_port", 2014);
         this->declare_parameter<int>("rps", 10);
         this->declare_parameter<std::string>("pcap", "");
         this->declare_parameter<int>("data_level",3);
@@ -284,8 +284,8 @@ private:
         this->get_parameter("model", config_.device_name);
         this->get_parameter("advertise_name", config_.advertise_path);
         this->get_parameter("control_name", config_.command_path);
-        this->get_parameter("device_port", config_.dataport);
         this->get_parameter("device_ip", config_.device_ip);
+        this->get_parameter("device_port", config_.dataport);
         this->get_parameter("rps", config_.scnSpeed);
         this->get_parameter("pcap", config_.simu_filepath);
         this->get_parameter("data_level",config_.data_level);
@@ -296,12 +296,11 @@ private:
     {
         return (config_.simu_filepath.empty());
         
-        // return ((config_.simu_filepath == "")? true : false);
     }
 
     double calcReplayPacketRate()
     {
-      double rate = 0.0f;
+    double rate = 0.0f;
     std::string device = config_.device_name;
     int data_level = config_.data_level;
     bool dual_echo = config_.dual_echo;
